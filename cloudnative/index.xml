@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Posts on Mark Zhu&#39;s Blog</title>
-    <link>/posts/</link>
-    <description>Recent content in Posts on Mark Zhu&#39;s Blog</description>
+    <title>My Go Journey on Mark Zhu&#39;s Blog</title>
+    <link>/cloudnative/</link>
+    <description>Recent content in My Go Journey on Mark Zhu&#39;s Blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sat, 11 Apr 2020 17:42:57 +0800</lastBuildDate>
+    <lastBuildDate>Thu, 23 Mar 2017 00:00:00 +0000</lastBuildDate>
     
-	<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="/cloudnative/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>Log API Payload in istio</title>
-      <link>/posts/log-api-payload-istio/</link>
+      <link>/cloudnative/log-api-payload-istio/</link>
       <pubDate>Sat, 11 Apr 2020 17:42:57 +0800</pubDate>
       
-      <guid>/posts/log-api-payload-istio/</guid>
+      <guid>/cloudnative/log-api-payload-istio/</guid>
       <description>Overview API Payload capture is a key tool in troubleshooting.
 tcpdump is the tool working at ISO layer 3~6, Our api working working at Layer 7(HTTP), many capture rules are work only on Layer 7. E.g. filter payload by URL Path is hard.
 tcpdump -i enp0s8 -s 0 -v -n -l | egrep -i &amp;#34;POST /|GET /|Host:&amp;#34; In Istio(ADP Service Mesh), Envoy is the sidecar. It supports HTTP Filters, It work on Layer 7, We can create some filter on Envoy to capture payload.</description>
