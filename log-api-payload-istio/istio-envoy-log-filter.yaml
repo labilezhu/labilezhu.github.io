@@ -1,0 +1,86 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: logpayload
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: productpage
+  configPatches:
+    # The first patch adds the lua filter to the listener/http connection manager
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+#        portNumber: 15001
+        filterChain:
+          filter:
+            name: "envoy.http_connection_manager"
+            subFilter:
+              name: "envoy.router"
+    patch:
+      operation: INSERT_BEFORE
+      value: # filter specification
+        # name: envoy.filters.http.tap
+        #   config:
+        #     common_config:
+        #       static_config:
+        #         match_config:
+        #           any_match: true
+        #         output_config:
+        #           sinks:
+        #             - file_per_tap:
+        #                 path_prefix: taps/any
+
+        name: "envoy.filters.http.tap"
+        config:
+          common_config:
+            admin_config:
+              config_id: test_config_id
+
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+#        portNumber: 15001
+        filterChain:
+          filter:
+            name: "envoy.http_connection_manager"
+            subFilter:
+              name: "envoy.router"
+    patch:
+      operation: INSERT_BEFORE
+      value: # filter specification
+          name: envoy.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.config.filter.http.lua.v2.Lua
+            inline_code: |
+              function logPayload(handle)
+                  handle:logWarn("[logPayload] started")
+
+                  local index = 0
+                  for chunk in handle:bodyChunks() do
+                      handle:logWarn('[logPayload] showing bodyChunks')
+
+                      local len = chunk:length()
+                      if len < 1 then
+                        break
+                      end
+                      local result = chunk:getBytes(index, len)
+                      index = index + len
+
+                      handle:logWarn(result)
+                  end
+
+                  handle:logWarn("[logPayload] finished")
+              end            
+
+              function envoy_on_request(handle)
+                logPayload(handle)
+              end
+              function envoy_on_response(handle)
+                logPayload(handle)
+              end   
+
+
