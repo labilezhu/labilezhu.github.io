@@ -103,6 +103,20 @@ tcpdump -i enp0s8 -s 0 -v -n -l | egrep -i &amp;#34;POST /|GET /|Host:&amp;#34; 
     
 
     
+    <div class="spacer"></div>
+    <ul class="language-selector">
+      <ul class="language-selector-current">
+          <li>English ▾</li>
+      </ul>
+      <ul class="language-selector__more hidden">
+        
+        <li><a href="/">English</a></li>
+        
+        <li><a href="/zh-cn/">中文</a></li>
+        
+      </ul>
+    </ul>
+    
   </ul>
 
   <ul class="menu__inner menu__inner--mobile">
@@ -115,6 +129,17 @@ tcpdump -i enp0s8 -s 0 -v -n -l | egrep -i &amp;#34;POST /|GET /|Host:&amp;#34; 
         <li><a href="/cloudnative">Cloud Native</a></li>
       
     
+    
+    <hr />
+        
+          <li>
+            <a href="/">English</a>
+          </li>
+        
+          <li>
+            <a href="/zh-cn/">中文</a>
+          </li>
+        
     
   </ul>
 </nav>
@@ -141,8 +166,31 @@ tcpdump -i enp0s8 -s 0 -v -n -l | egrep -i &amp;#34;POST /|GET /|Host:&amp;#34; 
 
   
 
+  <aside>
+    <nav id="TableOfContents">
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#old-school-tcpdump-on-minikubeft-or-node-local">Old school: tcpdump on minikube(FT) or Node local</a></li>
+    <li><a href="#sidecarenvoy-filtertap">Sidecar(Envoy) Filter/Tap</a>
+      <ul>
+        <li><a href="#setup">Setup</a></li>
+        <li><a href="#capture">Capture</a></li>
+        <li><a href="#how-it-work">How it work</a></li>
+        <li><a href="#how-to-customize">How to customize</a></li>
+        <li><a href="#clean-up">Clean up</a></li>
+      </ul>
+    </li>
+    <li><a href="#ref">Ref.</a></li>
+  </ul>
+</nav>
+  </aside>  
+
   <div class="post-content"><div>
-        <h1 id="overview">Overview<a href="#overview" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+        
+  <img src="/log-api-payload-istio/water-treatment-icon-65.png"  alt="Hello Friend"  class="center"  style="border-radius: 8px;width:400px;height:400px"  />
+
+
+<h2 id="overview">Overview<a href="#overview" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
 <p>API Payload capture is a key tool for troubleshooting.</p>
 <p>Tcpdump is the tool working at ISO layer 3~6, Many modern API working at Layer 7(HTTP), many capture rules are working only on Layer 7.
 E.g. filter payload by URL Path is hard for tcpdump:</p>
@@ -156,22 +204,29 @@ set CONTAINER_PID_AT_HOST=398212
 
 [root@host-os ~]# nsenter -t $CONTAINER_PID_AT_HOST  -u -i -n -p -C tcpdump -A -vv
 ...
-</code></pre><p>It is hard to find your API in the network flood.</p>
+</code></pre><p>In many cases, it is hard to find your API in the network flood from tcpdump.</p>
 <h2 id="sidecarenvoy-filtertap">Sidecar(Envoy) Filter/Tap<a href="#sidecarenvoy-filtertap" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
 <p>In Istio(Service Mesh), Envoy is the sidecar. All API traffic proxy by it. It supports HTTP Filters, we can create some filter on Envoy to capture payload.</p>
 <p>Tow methods are support:</p>
 <ul>
-<li>Tag Fitler</li>
+<li>Tap Fitler</li>
 <li>Lua Filter</li>
 </ul>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">kubectl apply -f http://log-api-payload-istio/istio-envoy-log-filter.yaml
+<h3 id="setup">Setup<a href="#setup" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h3>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">kubectl apply -f istio-envoy-log-filter.yaml
 
+<span style="color:#75715e">#Optional: check k8s resource:</span> 
 kubectl describe envoyfilters.networking.istio.io logpayload
-
-kubectl port-forward productpage-v1-85b9bf9cd7-gk6gk 15000:15000
-curl localhost:15000/config_dump &gt; /home/labile/mygit/cloudnative/istio/envoy-bootstrap-dyamnic2.json
-
-curl -XPOST -d <span style="color:#e6db74">&#39;config_id: test_config_id
+</code></pre></div><p>Optional: check envoy configuartion by envoy admin port 15000:</p>
+<pre><code>kubectl port-forward $your_pod_name 15000:15000
+curl localhost:15000/config_dump | grep -i logPayload
+</code></pre><p>You can download <a href="/log-api-payload-istio/istio-envoy-log-filter.yaml">istio-envoy-log-filter.yaml here</a>. <code>workloadSelector</code> and <code>namespace</code> is needed to updated for your case.</p>
+<h3 id="capture">Capture<a href="#capture" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h3>
+<h4 id="method-1-capture-by-tap-fitler">Method 1: Capture by Tap Fitler<a href="#method-1-capture-by-tap-fitler" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<p>Make sure we have port forward to envoy:</p>
+<pre><code class="language-basj" data-lang="basj">kubectl port-forward $your_pod_name 15000:15000
+</code></pre><p>curl long poll:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">curl -XPOST -d <span style="color:#e6db74">&#39;config_id: test_config_id
 </span><span style="color:#e6db74">tap_config:
 </span><span style="color:#e6db74">  match_config:
 </span><span style="color:#e6db74">    any_match: true
@@ -181,10 +236,218 @@ curl -XPOST -d <span style="color:#e6db74">&#39;config_id: test_config_id
 </span><span style="color:#e6db74">        streaming_admin: {}
 </span><span style="color:#e6db74">    max_buffered_rx_bytes: 2097152      
 </span><span style="color:#e6db74">    max_buffered_tx_bytes: 2097152&#39;</span> <span style="color:#e6db74">&#39;http://localhost:15000/tap&#39;</span>
+</code></pre></div><p>Open another terminal, access an API of  your application, e.g:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">curl http://your-service:your-service-port/your-api-path
+</code></pre></div><p>The &lsquo;curl long poll&rsquo; return the API payload like this:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+ <span style="color:#f92672">&#34;http_buffered_trace&#34;</span>: {
+  <span style="color:#f92672">&#34;request&#34;</span>: {
+   <span style="color:#f92672">&#34;headers&#34;</span>: [
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;:path&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;/productpage&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;:method&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;GET&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;:scheme&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;http&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;user-agent&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;curl/7.64.1&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;accept&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;*/*&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;x-forwarded-for&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;10.244.1.1&#34;</span>
+    }
+   ],
+   <span style="color:#f92672">&#34;trailers&#34;</span>: []
+  },
+  <span style="color:#f92672">&#34;response&#34;</span>: {
+   <span style="color:#f92672">&#34;headers&#34;</span>: [
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;:status&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;200&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;content-type&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;text/html; charset=utf-8&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;content-length&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;3889&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;server&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;istio-envoy&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;date&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;Sun, 12 Apr 2020 01:07:40 GMT&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;x-envoy-upstream-service-time&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;192&#34;</span>
+    },
+    {
+     <span style="color:#f92672">&#34;key&#34;</span>: <span style="color:#e6db74">&#34;x-envoy-peer-metadata-id&#34;</span>,
+     <span style="color:#f92672">&#34;value&#34;</span>: <span style="color:#e6db74">&#34;sidecar~10.244.2.37~productpage-v1-5f7b7d4568-hmqzd.default~default.svc.cluster.local&#34;</span>
+    }
+   ],
+   <span style="color:#f92672">&#34;body&#34;</span>: {
+    <span style="color:#f92672">&#34;truncated&#34;</span>: <span style="color:#66d9ef">false</span>,
+    <span style="color:#f92672">&#34;as_string&#34;</span>: <span style="color:#e6db74">&#34;\u003c!DOCTYPE html\u003e\n\u003chtml\u003e\n  \u003chead\u003e\n    \u003ctitle\u003eSimple Bookstore App\u003c/titleon(&#39;shown.bs.modal&#39;, function () {\n    $(&#39;#username&#39;).focus();\n  });\n\u003c/script\u003e\n\n  \u003c/body\u003e\n\u003c/html\u003e\n&#34;</span>
+   },
+   <span style="color:#f92672">&#34;trailers&#34;</span>: []
+  }
+ }
+}
+</code></pre></div><h4 id="method-2-by-kubectl-logs">Method 2: By kubectl logs<a href="#method-2-by-kubectl-logs" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<p>Open another terminal, access an API of  your application, e.g:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">curl http://your-service:your-service-port/your-api-path
+</code></pre></div><p>View the log of the sidecar(Envoy):</p>
+<pre><code>kubectl logs -f your-pod -c istio-proxy
+</code></pre><p>The paylod in the log:</p>
+<pre><code>[Envoy (Epoch 0)] [2020-04-12 01:07:41.292][29][warning][lua] [external/envoy/source/extensions/filters/http/lua/lua_filter.cc:597] script log: &lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Simple Bookstore App&lt;/title&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=edge&quot;&gt;
+</code></pre><h3 id="how-it-work">How it work<a href="#how-it-work" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h3>
+<p>Let&rsquo;s have a look at what in <code>kubectl apply -f istio-envoy-log-filter.yaml</code> :</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="color:#66d9ef">apiVersion</span>: networking.istio.io/v1alpha3
+<span style="color:#66d9ef">kind</span>: EnvoyFilter
+<span style="color:#66d9ef">metadata</span>:
+  <span style="color:#66d9ef">name</span>: logpayload
+  <span style="color:#66d9ef">namespace</span>: default
+<span style="color:#66d9ef">spec</span>:
+  <span style="color:#66d9ef">workloadSelector</span>:
+    <span style="color:#66d9ef">labels</span>:
+      <span style="color:#66d9ef">app</span>: productpage
+  <span style="color:#66d9ef">configPatches</span>:
+    <span style="color:#75715e"># The first patch adds the lua filter to the listener/http connection manager</span>
+  - <span style="color:#66d9ef">applyTo</span>: HTTP_FILTER
+    <span style="color:#66d9ef">match</span>:
+      <span style="color:#66d9ef">context</span>: SIDECAR_INBOUND
+      <span style="color:#66d9ef">listener</span>:
+<span style="color:#75715e">#        portNumber: 15001</span>
+        <span style="color:#66d9ef">filterChain</span>:
+          <span style="color:#66d9ef">filter</span>:
+            <span style="color:#66d9ef">name</span>: <span style="color:#e6db74">&#34;envoy.http_connection_manager&#34;</span>
+            <span style="color:#66d9ef">subFilter</span>:
+              <span style="color:#66d9ef">name</span>: <span style="color:#e6db74">&#34;envoy.router&#34;</span>
+    <span style="color:#66d9ef">patch</span>:
+      <span style="color:#66d9ef">operation</span>: INSERT_BEFORE
+      <span style="color:#66d9ef">value</span>: <span style="color:#75715e"># filter specification</span>
+        <span style="color:#75715e"># name: envoy.filters.http.tap</span>
+        <span style="color:#75715e">#   config:</span>
+        <span style="color:#75715e">#     common_config:</span>
+        <span style="color:#75715e">#       static_config:</span>
+        <span style="color:#75715e">#         match_config:</span>
+        <span style="color:#75715e">#           any_match: true</span>
+        <span style="color:#75715e">#         output_config:</span>
+        <span style="color:#75715e">#           sinks:</span>
+        <span style="color:#75715e">#             - file_per_tap:</span>
+        <span style="color:#75715e">#                 path_prefix: taps/any</span>
 
+        <span style="color:#66d9ef">name</span>: <span style="color:#e6db74">&#34;envoy.filters.http.tap&#34;</span>
+        <span style="color:#66d9ef">config</span>:
+          <span style="color:#66d9ef">common_config</span>:
+            <span style="color:#66d9ef">admin_config</span>:
+              <span style="color:#66d9ef">config_id</span>: test_config_id
 
-curl http://192.168.56.11:80/productpage
-</code></pre></div><p><a href="/log-api-payload-istio/istio-envoy-log-filter.yaml">Download: istio-envoy-log-filter.yaml</a></p>
+  - <span style="color:#66d9ef">applyTo</span>: HTTP_FILTER
+    <span style="color:#66d9ef">match</span>:
+      <span style="color:#66d9ef">context</span>: SIDECAR_INBOUND
+      <span style="color:#66d9ef">listener</span>:
+<span style="color:#75715e">#        portNumber: 15001</span>
+        <span style="color:#66d9ef">filterChain</span>:
+          <span style="color:#66d9ef">filter</span>:
+            <span style="color:#66d9ef">name</span>: <span style="color:#e6db74">&#34;envoy.http_connection_manager&#34;</span>
+            <span style="color:#66d9ef">subFilter</span>:
+              <span style="color:#66d9ef">name</span>: <span style="color:#e6db74">&#34;envoy.router&#34;</span>
+    <span style="color:#66d9ef">patch</span>:
+      <span style="color:#66d9ef">operation</span>: INSERT_BEFORE
+      <span style="color:#66d9ef">value</span>: <span style="color:#75715e"># filter specification</span>
+          <span style="color:#66d9ef">name</span>: envoy.lua
+          <span style="color:#66d9ef">typed_config</span>:
+            <span style="color:#66d9ef">&#34;@type&#34;: </span>type.googleapis.com/envoy.config.filter.http.lua.v2.Lua
+            <span style="color:#66d9ef">inline_code</span>: <span style="color:#e6db74">|
+</span><span style="color:#e6db74">              function logPayload(handle)</span>
+                  handle:logWarn(<span style="color:#e6db74">&#34;[logPayload] started&#34;</span>)
+
+                  local index = <span style="color:#ae81ff">0</span>
+                  for chunk in handle:bodyChunks() do
+                      handle:logWarn(<span style="color:#e6db74">&#39;[logPayload] showing bodyChunks&#39;</span>)
+
+                      local len = chunk:length()
+                      if len &lt; <span style="color:#ae81ff">1</span> then
+                        break
+                      end
+                      local result = chunk:getBytes(index, len)
+                      index = index + len
+
+                      handle:logWarn(result)
+                  end
+
+                  handle:logWarn(<span style="color:#e6db74">&#34;[logPayload] finished&#34;</span>)
+              end            
+
+              function envoy_on_request(handle)
+                logPayload(handle)
+              end
+              function envoy_on_response(handle)
+                logPayload(handle)
+              end   
+</code></pre></div><p>First, Envoy Filter:</p>
+<ul>
+<li>HTTP Tap Filter
+<ul>
+<li><a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/tap_filter">https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/tap_filter</a></li>
+</ul>
+</li>
+<li>Lua Filter
+<ul>
+<li><a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/lua_filter">https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/lua_filter</a></li>
+</ul>
+</li>
+</ul>
+<p>Second, How Istio manage the envoy filter resource:</p>
+<ul>
+<li><a href="https://istio.io/docs/reference/config/networking/envoy-filter/">https://istio.io/docs/reference/config/networking/envoy-filter/</a></li>
+</ul>
+<h3 id="how-to-customize">How to customize<a href="#how-to-customize" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h3>
+<h4 id="filter-by-servicedeploymentreplica">filter by service/deployment/replica<a href="#filter-by-servicedeploymentreplica" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<p>update istio-envoy-log-filter.yaml :</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="color:#66d9ef">spec</span>:
+  <span style="color:#66d9ef">workloadSelector</span>:
+    <span style="color:#66d9ef">labels</span>:
+      <span style="color:#66d9ef">app</span>: your-app-label
+</code></pre></div><div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">kubectl apply -f istio-envoy-log-filter.yaml
+</code></pre></div><p>More info: <a href="https://istio.io/docs/reference/config/networking/envoy-filter/">https://istio.io/docs/reference/config/networking/envoy-filter/</a></p>
+<h4 id="filter-by-url">filter by URL<a href="#filter-by-url" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<h5 id="when-capture-by-tap">When capture by Tap:<a href="#when-capture-by-tap" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h5>
+<p>TODO</p>
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<h5 id="when-capture-by-k8s-log">When capture by k8s log:<a href="#when-capture-by-k8s-log" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h5>
+<p>TODO</p>
+<h4 id="tap-to-file">Tap to file<a href="#tap-to-file" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<p>TODO</p>
+<h3 id="clean-up">Clean up<a href="#clean-up" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h3>
+<pre><code>kubectl delete -f istio-envoy-log-filter.yaml
+</code></pre><h2 id="ref">Ref.<a href="#ref" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
+<ul>
+<li><a href="https://medium.com/@mtchkll/solving-microservice-mysteries-with-envoys-tap-filter-fd159c36d0af">https://medium.com/@mtchkll/solving-microservice-mysteries-with-envoys-tap-filter-fd159c36d0af</a></li>
+</ul>
 
       </div></div>
   
