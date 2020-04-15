@@ -207,7 +207,7 @@ set CONTAINER_PID_AT_HOST=398212
 </code></pre><p>In many cases, it is hard to find your API in the network flood from tcpdump.</p>
 <h2 id="sidecarenvoy-filtertap">Sidecar(Envoy) Filter/Tap<a href="#sidecarenvoy-filtertap" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
 <p>In Istio(Service Mesh), Envoy is the sidecar. All API traffic proxy by it. It supports HTTP Filters, we can create some filter on Envoy to capture payload.</p>
-<p>Tow methods are support:</p>
+<p>Two methods are support:</p>
 <ul>
 <li>Tap Fitler</li>
 <li>Lua Filter</li>
@@ -435,11 +435,106 @@ curl localhost:15000/config_dump | grep -i logPayload
 </code></pre></div><p>More info: <a href="https://istio.io/docs/reference/config/networking/envoy-filter/">https://istio.io/docs/reference/config/networking/envoy-filter/</a></p>
 <h4 id="filter-by-url">filter by URL<a href="#filter-by-url" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
 <h5 id="when-capture-by-tap">When capture by Tap:<a href="#when-capture-by-tap" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h5>
-<p>TODO</p>
-<!-- raw HTML omitted -->
-<!-- raw HTML omitted -->
-<h5 id="when-capture-by-k8s-log">When capture by k8s log:<a href="#when-capture-by-k8s-log" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h5>
-<p>TODO</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">curl -XPOST -d <span style="color:#e6db74">&#39;config_id: test_config_id
+</span><span style="color:#e6db74">tap_config:
+</span><span style="color:#e6db74">  match_config:
+</span><span style="color:#e6db74">    http_request_headers_match:
+</span><span style="color:#e6db74">       headers:
+</span><span style="color:#e6db74">        - name: &#34;:path&#34;
+</span><span style="color:#e6db74">          exact_match: &#34;/productpage&#34;
+</span><span style="color:#e6db74">        #- name: &#34;:path&#34;
+</span><span style="color:#e6db74">          #safe_regex_match: 
+</span><span style="color:#e6db74">          #  google_re2: 
+</span><span style="color:#e6db74">          #    max_program_size: 200
+</span><span style="color:#e6db74">          #  regex: &#34;.*productpage.*&#34;
+</span><span style="color:#e6db74">        #- name: &#34;:method&#34;
+</span><span style="color:#e6db74">        #  exact_match: &#34;POST&#34;
+</span><span style="color:#e6db74">  output_config:
+</span><span style="color:#e6db74">    sinks:
+</span><span style="color:#e6db74">      - format: JSON_BODY_AS_STRING
+</span><span style="color:#e6db74">        streaming_admin: {}
+</span><span style="color:#e6db74">    max_buffered_rx_bytes: 2097152      
+</span><span style="color:#e6db74">    max_buffered_tx_bytes: 2097152&#39;</span> <span style="color:#e6db74">&#39;http://localhost:15000/tap&#39;</span> 
+</code></pre></div><h5 id="when-capture-by-k8s-log">When capture by k8s log:<a href="#when-capture-by-k8s-log" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h5>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="color:#66d9ef">apiVersion</span>: networking.istio.io/v1alpha3
+<span style="color:#66d9ef">kind</span>: EnvoyFilter
+<span style="color:#66d9ef">metadata</span>:
+  <span style="color:#66d9ef">name</span>: logpayload
+  <span style="color:#66d9ef">namespace</span>: default
+<span style="color:#66d9ef">spec</span>:
+  <span style="color:#66d9ef">workloadSelector</span>:
+    <span style="color:#66d9ef">labels</span>:
+      <span style="color:#66d9ef">app</span>: productpage
+  <span style="color:#66d9ef">configPatches</span>:
+    <span style="color:#75715e"># The first patch adds the lua filter to the listener/http connection manager</span>
+
+  - <span style="color:#66d9ef">applyTo</span>: HTTP_FILTER
+    <span style="color:#66d9ef">match</span>:
+      <span style="color:#66d9ef">context</span>: SIDECAR_INBOUND
+      <span style="color:#66d9ef">listener</span>:
+<span style="color:#75715e">#        portNumber: 15001</span>
+        <span style="color:#66d9ef">filterChain</span>:
+          <span style="color:#66d9ef">filter</span>:
+            <span style="color:#66d9ef">name</span>: <span style="color:#e6db74">&#34;envoy.http_connection_manager&#34;</span>
+            <span style="color:#66d9ef">subFilter</span>:
+              <span style="color:#66d9ef">name</span>: <span style="color:#e6db74">&#34;envoy.router&#34;</span>
+    <span style="color:#66d9ef">patch</span>:
+      <span style="color:#66d9ef">operation</span>: INSERT_BEFORE
+      <span style="color:#66d9ef">value</span>: <span style="color:#75715e"># filter specification</span>
+          <span style="color:#66d9ef">name</span>: envoy.lua
+          <span style="color:#66d9ef">typed_config</span>:
+            <span style="color:#66d9ef">&#34;@type&#34;: </span>type.googleapis.com/envoy.config.filter.http.lua.v2.Lua
+            <span style="color:#66d9ef">inline_code</span>: <span style="color:#e6db74">|
+</span><span style="color:#e6db74">              function logPayload(handle)</span>
+                    handle:logWarn(<span style="color:#e6db74">&#34;[logPayload] started&#34;</span>)
+
+                    local headStr = <span style="color:#e6db74">&#34;&#34;</span>
+                    for key, value in pairs(handle:headers()) do
+                      headStr = headStr .. <span style="color:#e6db74">&#34;\n&#34;</span> .. key .. <span style="color:#e6db74">&#34;:&#34;</span> .. value .. <span style="color:#e6db74">&#34;,&#34;</span>
+                    end             
+                    
+                    handle:logWarn(<span style="color:#e6db74">&#34;[logPayload:headers] --&gt; &#34;</span> .. headStr)
+
+                    local index = <span style="color:#ae81ff">0</span>
+                    for chunk in handle:bodyChunks() do
+                        handle:logWarn(<span style="color:#e6db74">&#39;[logPayload] showing bodyChunks&#39;</span>)
+
+                        local len = chunk:length()
+                        if len &lt; <span style="color:#ae81ff">1</span> then
+                          break
+                        end
+                        local result = chunk:getBytes(index, len)
+                        index = index + len
+
+                        handle:logWarn(result)
+                    end
+              end            
+
+              function envoy_on_request(handle)
+                  local path = handle:headers():get(<span style="color:#e6db74">&#34;:path&#34;</span>)
+                  if path ~= nil and path:find(<span style="color:#e6db74">&#34;productpage&#34;</span>) ~= nil then
+                    handle:streamInfo():dynamicMetadata():set(<span style="color:#e6db74">&#34;envoy.lua&#34;</span>, <span style="color:#e6db74">&#34;request.info&#34;</span>, <span style="color:#e6db74">&#34;true&#34;</span>)                    
+                    logPayload( handle )
+                  end              
+              end
+
+              function envoy_on_response(handle)
+                local path = handle:headers():get(<span style="color:#e6db74">&#34;:path&#34;</span>)
+                if path ~= nil and path:find(<span style="color:#e6db74">&#34;productpage&#34;</span>) ~= nil then
+                  handle:logWarn(<span style="color:#e6db74">&#34;[envoy_on_response] find productpage&#34;</span>)
+                end
+
+                if handle:streamInfo():dynamicMetadata():get(<span style="color:#e6db74">&#34;envoy.lua&#34;</span>) == nil then
+                  return
+                end
+
+                local meta = handle:streamInfo():dynamicMetadata():get(<span style="color:#e6db74">&#34;envoy.lua&#34;</span>)[<span style="color:#e6db74">&#34;request.info&#34;</span>]
+                if( meta ~= nil ) then
+                    handle:logWarn(<span style="color:#e6db74">&#34;[envoy_on_request] meta logPayload found&#34;</span>)
+                    logPayload( handle )
+                end
+              end
+</code></pre></div><p>You can download <a href="/log-api-payload-istio/istio-envoy-log-filter-by-path.yaml">istio-envoy-log-filter-by-path.yaml here</a></p>
 <h4 id="tap-to-file">Tap to file<a href="#tap-to-file" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
 <p>TODO</p>
 <h3 id="clean-up">Clean up<a href="#clean-up" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h3>

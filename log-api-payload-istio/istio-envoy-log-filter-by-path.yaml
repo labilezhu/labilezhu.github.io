@@ -1,0 +1,79 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: logpayload
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: productpage
+  configPatches:
+    # The first patch adds the lua filter to the listener/http connection manager
+
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+#        portNumber: 15001
+        filterChain:
+          filter:
+            name: "envoy.http_connection_manager"
+            subFilter:
+              name: "envoy.router"
+    patch:
+      operation: INSERT_BEFORE
+      value: # filter specification
+          name: envoy.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.config.filter.http.lua.v2.Lua
+            inline_code: |
+              function logPayload(handle)
+                    handle:logWarn("[logPayload] started")
+
+                    local headStr = ""
+                    for key, value in pairs(handle:headers()) do
+                      headStr = headStr .. "\n" .. key .. ":" .. value .. ","
+                    end             
+                    
+                    handle:logWarn("[logPayload:headers] --> " .. headStr)
+
+                    local index = 0
+                    for chunk in handle:bodyChunks() do
+                        handle:logWarn('[logPayload] showing bodyChunks')
+
+                        local len = chunk:length()
+                        if len < 1 then
+                          break
+                        end
+                        local result = chunk:getBytes(index, len)
+                        index = index + len
+
+                        handle:logWarn(result)
+                    end
+              end            
+
+              function envoy_on_request(handle)
+                  local path = handle:headers():get(":path")
+                  if path ~= nil and path:find("productpage") ~= nil then
+                    handle:streamInfo():dynamicMetadata():set("envoy.lua", "request.info", "true")                    
+                    logPayload( handle )
+                  end              
+              end
+
+              function envoy_on_response(handle)
+                local path = handle:headers():get(":path")
+                if path ~= nil and path:find("productpage") ~= nil then
+                  handle:logWarn("[envoy_on_response] find productpage")
+                end
+
+                if handle:streamInfo():dynamicMetadata():get("envoy.lua") == nil then
+                  return
+                end
+
+                local meta = handle:streamInfo():dynamicMetadata():get("envoy.lua")["request.info"]
+                if( meta ~= nil ) then
+                    handle:logWarn("[envoy_on_request] meta logPayload found")
+                    logPayload( handle )
+                end
+              end
+
