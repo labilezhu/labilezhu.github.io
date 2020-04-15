@@ -17,9 +17,12 @@
       <pubDate>Sat, 11 Apr 2020 17:42:57 +0800</pubDate>
       
       <guid>/zh-cn/cloudnative/service-mesh/log-api-payload-istio/</guid>
-      <description>概述 API Payload capture is a key tool for troubleshooting.
-Tcpdump is the tool working at ISO layer 3~6, Many modern API working at Layer 7(HTTP), many capture rules are working only on Layer 7. E.g. filter payload by URL Path is hard for tcpdump:
-tcpdump -i enp0s8 -s 0 -v -n -l | egrep -i &amp;#34;POST /|GET /|Host:&amp;#34; Old school: tcpdump on minikube(FT) or Node local Below is an example of tcpdump.</description>
+      <description>概述 API调用报文捕获是进行故障排除的关键工具。
+Tcpdump是在ISO第3〜6层工作的工具，许多现代API在第7层（HTTP）工作，许多捕获规则仅在第7层有效。 例如。 通过URL路径过滤对于tcpdump来说很困难：
+tcpdump -i enp0s8 -s 0 -v -n -l | egrep -i &amp;#34;POST /|GET /|Host:&amp;#34; 一般方法：minikube 或 Node Local（物理节点）上用 tcpdump 以下是tcpdump的示例。
+[root@host-os ~]# ps -ef | grep -i myServicePS 100 398212 398058 0 Apr07 ? 00:26:08 java ...myServicePS... set CONTAINER_PID_AT_HOST=398212 [root@host-os ~]# nsenter -t $CONTAINER_PID_AT_HOST -u -i -n -p -C tcpdump -A -vv ... 在许多情况下，很难在大量的 tcpdump 结果中找到您的API。
+Sidecar(Envoy) Filter/Tap 方式 在 Istio 中，Envoy是所有API流量的代理。 它支持HTTP过滤器，我们可以在Envoy上创建一些过滤器来捕获负载报文。
+有两种方法：</description>
     </item>
     
   </channel>

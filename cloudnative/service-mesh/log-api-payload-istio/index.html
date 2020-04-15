@@ -207,7 +207,7 @@ set CONTAINER_PID_AT_HOST=398212
 </code></pre><p>In many cases, it is hard to find your API in the network flood from tcpdump.</p>
 <h2 id="sidecarenvoy-filtertap">Sidecar(Envoy) Filter/Tap<a href="#sidecarenvoy-filtertap" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h2>
 <p>In Istio(Service Mesh), Envoy is the sidecar. All API traffic proxy by it. It supports HTTP Filters, we can create some filter on Envoy to capture payload.</p>
-<p>Two methods are support:</p>
+<p>Two methods are supported:</p>
 <ul>
 <li>Tap Fitler</li>
 <li>Lua Filter</li>
@@ -224,8 +224,8 @@ curl localhost:15000/config_dump | grep -i logPayload
 <h3 id="capture">Capture<a href="#capture" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h3>
 <h4 id="method-1-capture-by-tap-fitler">Method 1: Capture by Tap Fitler<a href="#method-1-capture-by-tap-fitler" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
 <p>Make sure we have port forward to envoy:</p>
-<pre><code class="language-basj" data-lang="basj">kubectl port-forward $your_pod_name 15000:15000
-</code></pre><p>curl long poll:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">kubectl port-forward $your_pod_name 15000:15000
+</code></pre></div><p>curl long poll:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">curl -XPOST -d <span style="color:#e6db74">&#39;config_id: test_config_id
 </span><span style="color:#e6db74">tap_config:
 </span><span style="color:#e6db74">  match_config:
